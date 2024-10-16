@@ -1,4 +1,5 @@
 * Write the README
+* Rewrap all the docstrings and comments
 * Write the docstring that goes at the top of the file
 * uuid_to_item can’t return None. It must return a dict
 * The resolve version of uuid_to_item can't return None
