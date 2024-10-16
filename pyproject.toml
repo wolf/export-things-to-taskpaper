@@ -1,0 +1,19 @@
+[project]
+name = "export-things-to-taskpaper"
+version = "0.1.0"
+description = "Starting from a Things 3 database, export a TaskPaper textfile targeting OmniFocus"
+author = ["Wolf <wolf@zv.cx>"]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyperclip",
+    "things.py",
+    "typer",
+]
+
+[project.scripts]
+export = "export_things_to_taskpaper:export"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
