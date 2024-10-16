@@ -3,6 +3,7 @@
 * uuid_to_item can’t return None. It must return a dict
 * The resolve version of uuid_to_item can't return None
 * Add mypy, ruff, and pytest to the dev dependencies in the pyproject.toml file
+* Ignore mypy, ruff, and pytest artifacts
 * Run mypy
 * Run ruff for linting
 * Run ruff for formatting
