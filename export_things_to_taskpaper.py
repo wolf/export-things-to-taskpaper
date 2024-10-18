@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any, Iterable, List, NewType, Optional, TextIO
 from typing_extensions import Annotated
 
-import pyperclip
-import things
+import pyperclip  # type: ignore
+import things  # type: ignore
 import typer
 
 
@@ -32,16 +32,9 @@ UUID = NewType("UUID", str)
 
 
 class UUIDDoesNotResolveError(Exception):
-    def __init__(self, uuid: str, type: str):
-        super.__init__("UUIDDoesNotResolveError")
-        self.uuid = uuid
-        self.type = type
-
-    def __str__(self):
-        type_message = ""
-        if self.type:
-            type_message = f", or else is not of type '{self.type}'"
-        return f"The UUID {self.uuid} is not in the database{type_message}"
+    def __init__(self, uuid: str, type: str | None) -> None:
+        type_message = f", or else is not of type '{type}'" if type else ""
+        super().__init__(f"The UUID {uuid} is not in the database{type_message}")
 
 
 # Note: for projects to import correctly, in OmniFocus, you must import to "Projects", not to the "Inbox".
@@ -49,7 +42,7 @@ class UUIDDoesNotResolveError(Exception):
 # Note that to reduce the total number of queries, and to avoid problems in how the things.py library works, anytime we call `things.tasks`, we pass `include_items=True` so we get everything underneath it, too.
 
 
-def uuid_to_item(uuid: UUID, type: str | None=None) -> dict[str, Any] | None:
+def uuid_to_item(uuid: UUID, type: str | None = None) -> dict[str, Any]:
     """
     Return the dictionary that represents the item with the given UUID
 
@@ -71,7 +64,7 @@ def uuid_to_item(uuid: UUID, type: str | None=None) -> dict[str, Any] | None:
     return item
 
 
-def _resolve_item_if_needed(item: UUID | dict[str, Any], type: str | None=None) -> dict[str, Any] | None:
+def _resolve_item_if_needed(item: UUID | dict[str, Any], type: str | None = None) -> dict[str, Any]:
     """
     Return the dictionary that represents an item, whether by looking up the UUID, or just noticing you already had the item
 
@@ -133,7 +126,7 @@ def _write_checklist_if_any(todo: dict[str, Any], stream: TextIO, depth: str) ->
             stream.write(f"""{depth}- {checklist_item["title"]}\n""")
 
 
-def _get_omnifocus_parameters(item: dict[str, Any], area_name: str | None=None) -> str:
+def _get_omnifocus_parameters(item: dict[str, Any], area_name: str | None = None) -> str:
     """
     Return a string with application specific properties that will be tacked on to projects and todos
 
@@ -150,7 +143,9 @@ def _get_omnifocus_parameters(item: dict[str, Any], area_name: str | None=None) 
         tags += [start]  # ...but we'll also add "Anytime", "Someday", or "Inbox"
     if area_name:
         area_name = f"area-{area_name.replace(" ", "-")}"
-        tags += [area_name]  # ...and if this item was at the top-level of an area, make a tag for that (so it's easy to move by hand)
+        tags += [
+            area_name
+        ]  # ...and if this item was at the top-level of an area, make a tag for that (so it's easy to move by hand)
     result += f" @tags({", ".join(sorted(set(tags)))})"  # set to eliminate duplicates, sorted just because I want to
 
     # TODO: handle repeating items.  Ugh.  This looks annoying.  Note that things.py, the library I'm
@@ -161,7 +156,12 @@ def _get_omnifocus_parameters(item: dict[str, Any], area_name: str | None=None) 
     return result
 
 
-def write_todo(todo: UUID | dict[str, Any], stream: TextIO=sys.stdout, depth: str="", area_name: str | None=None) -> None:
+def write_todo(
+    todo: UUID | dict[str, Any],
+    stream: TextIO = sys.stdout,
+    depth: str = "",
+    area_name: str | None = None,
+) -> None:
     """
     Write one todo to stream
 
@@ -171,14 +171,24 @@ def write_todo(todo: UUID | dict[str, Any], stream: TextIO=sys.stdout, depth: st
     """
     resolved_todo = _resolve_item_if_needed(todo, type="to-do")  # save todo in case it's a UUID and can't be resolved
     if not resolved_todo:
-        raise UUIDDoesNotResolveError(todo, "to-do")  # this can only happen for an interactive user, because only interactive users use UUIDs
+        assert isinstance(todo, str)
+        raise UUIDDoesNotResolveError(
+            todo, "to-do"
+        )  # this can only happen for an interactive user, because only interactive users use UUIDs
 
-    stream.write(f"""{depth}- {resolved_todo["title"]}{_get_omnifocus_parameters(resolved_todo, area_name=area_name)}\n""")
-    _write_note_if_any(resolved_todo, stream, depth+"\t")
-    _write_checklist_if_any(resolved_todo, stream, depth+"\t")
+    stream.write(
+        f"""{depth}- {resolved_todo["title"]}{_get_omnifocus_parameters(resolved_todo, area_name=area_name)}\n"""
+    )
+    _write_note_if_any(resolved_todo, stream, depth + "\t")
+    _write_checklist_if_any(resolved_todo, stream, depth + "\t")
 
 
-def write_todos(todos: list[UUID] | list[dict[str, Any]], stream: TextIO=sys.stdout, depth: str="", area_name: str | None=None) -> None:
+def write_todos(
+    todos: list[UUID] | list[dict[str, Any]],
+    stream: TextIO = sys.stdout,
+    depth: str = "",
+    area_name: str | None = None,
+) -> None:
     """
     Write a list of todos, one at a time, to stream
 
@@ -190,7 +200,9 @@ def write_todos(todos: list[UUID] | list[dict[str, Any]], stream: TextIO=sys.std
         write_todo(todo, stream, depth, area_name)
 
 
-def get_all_todos_for_project_in_order(project: UUID | dict[str, Any]) -> list[dict[str, Any]]:
+def get_all_todos_for_project_in_order(
+    project: UUID | dict[str, Any],
+) -> list[dict[str, Any]]:
     """
     Extract all the todos from a single project and return them as a list
 
@@ -207,34 +219,31 @@ def get_all_todos_for_project_in_order(project: UUID | dict[str, Any]) -> list[d
     """
     resolved_project = _resolve_item_if_needed(project, "project")
     if not resolved_project:
-        raise UUIDDoesNotResolveError(project, "project")  # this can only happen for an interactive user, because only interactive users use UUIDs
+        assert isinstance(project, str)
+        raise UUIDDoesNotResolveError(
+            project, "project"
+        )  # this can only happen for an interactive user, because only interactive users use UUIDs
 
     project_items = resolved_project.get("items", [])
 
-    todos_directly_under_the_project = [
-        todo
-        for todo in project_items
-        if todo.get("type") == "to-do"
-    ]
+    todos_directly_under_the_project = [todo for todo in project_items if todo.get("type") == "to-do"]
 
-    headings = sorted([
-        heading
-        for heading in project_items
-        if heading.get("type") == "heading"
-    ], key=itemgetter("index"))
+    headings = sorted(
+        [heading for heading in project_items if heading.get("type") == "heading"],
+        key=itemgetter("index"),
+    )
 
     todos_under_headings = []
     for heading in headings:
-        todos_under_headings += sorted([
-            todo
-            for todo in heading.get("items", [])
-            if todo.get("type") == "to-do"
-        ], key=itemgetter("index"))
+        todos_under_headings += sorted(
+            [todo for todo in heading.get("items", []) if todo.get("type") == "to-do"],
+            key=itemgetter("index"),
+        )
 
     return todos_directly_under_the_project + todos_under_headings
 
 
-def write_project(project: UUID | dict[str, Any], stream: TextIO=sys.stdout, depth: str="") -> None:
+def write_project(project: UUID | dict[str, Any], stream: TextIO = sys.stdout, depth: str = "") -> None:
     """
     Write a single project (and all its todos) to stream
 
@@ -245,20 +254,29 @@ def write_project(project: UUID | dict[str, Any], stream: TextIO=sys.stdout, dep
     """
     resolved_project = _resolve_item_if_needed(project, "project")
     if not resolved_project:
-        raise UUIDDoesNotResolveError(project, "project")  # this can only happen for an interactive user, because only interactive users use UUIDs
+        assert isinstance(project, str)
+        raise UUIDDoesNotResolveError(
+            project, "project"
+        )  # this can only happen for an interactive user, because only interactive users use UUIDs
 
     # First write the project entry itself
     area_name = resolved_project.get("area_title")
-    stream.write(f"""{depth}{resolved_project["title"]}:{_get_omnifocus_parameters(resolved_project, area_name=area_name)}\n""")
-    _write_note_if_any(resolved_project, stream, depth+"\t")
+    stream.write(
+        f"""{depth}{resolved_project["title"]}:{_get_omnifocus_parameters(resolved_project, area_name=area_name)}\n"""
+    )
+    _write_note_if_any(resolved_project, stream, depth + "\t")
 
     # Then write all the todos for the project; and because each todo belongs to this specific project
     #   I don't have to add an area tag
     todos = get_all_todos_for_project_in_order(resolved_project)
-    write_todos(todos, stream, depth=depth+"\t")
+    write_todos(todos, stream, depth=depth + "\t")
 
 
-def write_projects(projects: list[UUID] | list[dict[str, Any]], stream: TextIO=sys.stdout, depth: str="") -> None:
+def write_projects(
+    projects: list[UUID] | list[dict[str, Any]],
+    stream: TextIO = sys.stdout,
+    depth: str = "",
+) -> None:
     """
     Write a list of projects, one at a time, to stream
 
@@ -283,14 +301,20 @@ def get_all_projects_for_area(area: UUID | dict[str, Any]) -> list[dict[str, Any
     """
     resolved_area = _resolve_item_if_needed(area, type="area")
     if not resolved_area:
-        raise UUIDDoesNotResolveError(area, "area")  # this can only happen for an interactive user, because only interactive users use UUIDs
+        assert isinstance(area, str)
+        raise UUIDDoesNotResolveError(
+            area, "area"
+        )  # this can only happen for an interactive user, because only interactive users use UUIDs
 
     area_uuid = resolved_area["uuid"]
-    return sorted([
-        project
-        for project in resolved_area.get("items", [])
-        if project.get("type") == "project" and project.get("area") == area_uuid
-    ], key=itemgetter("index"))
+    return sorted(
+        [
+            project
+            for project in resolved_area.get("items", [])
+            if project.get("type") == "project" and project.get("area") == area_uuid
+        ],
+        key=itemgetter("index"),
+    )
 
 
 def get_all_projects_with_no_area() -> list[dict[str, Any]]:
@@ -303,11 +327,14 @@ def get_all_projects_with_no_area() -> list[dict[str, Any]]:
 
     If there are no projects without areas, this function returns the empty list.
     """
-    return sorted([
-        project
-        for project in things.tasks(type="project", area=False)
-        if project.get("type") == "project" and not project.get("area")
-    ], key=itemgetter("index"))
+    return sorted(
+        [
+            project
+            for project in things.tasks(type="project", area=False)
+            if project.get("type") == "project" and not project.get("area")
+        ],
+        key=itemgetter("index"),
+    )
 
 
 def get_all_todos_for_area(area: UUID | dict[str, Any]) -> list[dict[str, Any]]:
@@ -322,14 +349,20 @@ def get_all_todos_for_area(area: UUID | dict[str, Any]) -> list[dict[str, Any]]:
     """
     resolved_area = _resolve_item_if_needed(area, type="area")
     if not resolved_area:
-        raise UUIDDoesNotResolveError(area, "area")  # this can only happen for an interactive user, because only interactive users use UUIDs
+        assert isinstance(area, str)
+        raise UUIDDoesNotResolveError(
+            area, "area"
+        )  # this can only happen for an interactive user, because only interactive users use UUIDs
 
     area_uuid = resolved_area["uuid"]
-    return sorted([
-        todo
-        for todo in resolved_area.get("items", [])
-        if todo.get("type") == "to-do" and todo.get("area") == area_uuid
-    ], key=itemgetter("index"))
+    return sorted(
+        [
+            todo
+            for todo in resolved_area.get("items", [])
+            if todo.get("type") == "to-do" and todo.get("area") == area_uuid
+        ],
+        key=itemgetter("index"),
+    )
 
 
 def get_all_todos_with_no_area() -> list[dict[str, Any]]:
@@ -342,14 +375,17 @@ def get_all_todos_with_no_area() -> list[dict[str, Any]]:
 
     If there are no todos outside of any area, this function returns the empty list.
     """
-    return sorted([
-        todo
-        for todo in things.tasks(type="to-do", project=False, area=False, include_items=True)
-        if not todo.get("area") and not todo.get("project") and not todo.get("heading")
-    ], key=itemgetter("index"))
+    return sorted(
+        [
+            todo
+            for todo in things.tasks(type="to-do", project=False, area=False, include_items=True)
+            if not todo.get("area") and not todo.get("project") and not todo.get("heading")
+        ],
+        key=itemgetter("index"),
+    )
 
 
-def write_all_items_in_area(area: UUID | dict[str, Any], stream: TextIO=sys.stdout, depth: str="") -> None:
+def write_all_items_in_area(area: UUID | dict[str, Any], stream: TextIO = sys.stdout, depth: str = "") -> None:
     """
     Write everything inside an area, both projects and todos, to stream
 
@@ -366,10 +402,17 @@ def write_all_items_in_area(area: UUID | dict[str, Any], stream: TextIO=sys.stdo
     # and that case only happens once anyway, in _write_everything_except_areas
     resolved_area = _resolve_item_if_needed(area, type="area")
     if not resolved_area:
-        raise UUIDDoesNotResolveError(area, "area")  # this can only happen for an interactive user, because only interactive users use UUIDs
+        assert isinstance(area, str)
+        raise UUIDDoesNotResolveError(
+            area, "area"
+        )  # this can only happen for an interactive user, because only interactive users use UUIDs
     write_projects(get_all_projects_for_area(resolved_area), stream, depth=depth)
-    write_todos(get_all_todos_for_area(resolved_area), stream, depth=depth, area_name=resolved_area["title"])
-
+    write_todos(
+        get_all_todos_for_area(resolved_area),
+        stream,
+        depth=depth,
+        area_name=resolved_area["title"],
+    )
 
 
 def _write_everything_except_areas(stream: TextIO) -> None:
@@ -388,11 +431,11 @@ def _write_everything_except_areas(stream: TextIO) -> None:
 
 
 def export(
-        # TODO: below, can I replace List and Optional with their modern equivalents?
-        # TODO: should I add a parameter to send the output to a file?
-        write_to_clipboard: Annotated[Optional[bool], typer.Option()] = False,
-        database: Annotated[Optional[Path], typer.Option()] = None,
-        uuids: Annotated[Optional[List[UUID]], typer.Argument()] = None,
+    # TODO: below, can I replace List and Optional with their modern equivalents?
+    # TODO: should I add a parameter to send the output to a file?
+    write_to_clipboard: Annotated[Optional[bool], typer.Option()] = False,
+    database: Annotated[Optional[Path], typer.Option()] = None,
+    uuids: Annotated[Optional[List[UUID]], typer.Argument()] = None,
 ) -> None:
     """
     This the CLI entry-point for converting from a Things 3 database to an OmniFocus ready TaskPaper file
@@ -409,7 +452,7 @@ def export(
 
     stream = io.StringIO()
 
-    if uuids:
+    if not uuids:
         _write_everything_except_areas(stream)
     else:
         for uuid in uuids:
@@ -417,7 +460,10 @@ def export(
             try:
                 item = uuid_to_item(uuid)
             except UUIDDoesNotResolveError:
-                print(f"Warning: UUID '{uuid}' was not found in the database", file=sys.stderr)
+                print(
+                    f"Warning: UUID '{uuid}' was not found in the database",
+                    file=sys.stderr,
+                )
                 continue
             type = item.get("type")
             match type:
@@ -431,7 +477,10 @@ def export(
                     area = item
                     write_all_items_in_area(area, stream=stream)
                 case _:
-                    print(f"Warning: the item with UUID '{uuid}' was not a 'to-do', 'project', or 'area'", file=sys.stderr)
+                    print(
+                        f"Warning: the item with UUID '{uuid}' was not a 'to-do', 'project', or 'area'",
+                        file=sys.stderr,
+                    )
                     continue
 
     if write_to_clipboard:
