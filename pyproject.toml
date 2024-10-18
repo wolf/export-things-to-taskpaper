@@ -13,10 +13,14 @@ dependencies = [
 
 [tool.uv]
 dev-dependencies = [
-    "ruff",
+    "black",
     "mypy",
     "pytest",
+    "ruff",
 ]
+
+[tool.black]
+line-length = 120
 
 [project.scripts]
 export = "export_things_to_taskpaper:export"
