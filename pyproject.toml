@@ -11,6 +11,13 @@ dependencies = [
     "typer",
 ]
 
+[tool.uv]
+dev-dependencies = [
+    "ruff",
+    "mypy",
+    "pytest",
+]
+
 [project.scripts]
 export = "export_things_to_taskpaper:export"
 
